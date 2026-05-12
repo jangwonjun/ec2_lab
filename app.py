@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import streamlit as st
@@ -6,6 +7,19 @@ import streamlit as st
 # 실행 위치와 무관하게 data/ 를 찾기 (EC2 등 배포 환경)
 BASE_DIR = Path(__file__).resolve().parent
 QUESTION_FILE = BASE_DIR / "data" / "questions.json"
+# 과제 영상용: stdout 대신 프로젝트 폴더에 바로 append (tail -f demo_events.log)
+DEMO_LOG_FILE = BASE_DIR / "demo_events.log"
+
+
+def demo_log(message: str) -> None:
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    line = f"{ts} [ec2-lab] {message}\n"
+    try:
+        with open(DEMO_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line)
+    except OSError:
+        pass
+    print(line.rstrip(), flush=True)
 
 st.set_page_config(page_title="공구 마스터 퀴즈", page_icon="🛠️", layout="centered")
 
@@ -73,7 +87,7 @@ def main():
     init_state()
 
     st.sidebar.caption("오픈소스소프트웨어실습 · 실습3 EC2 배포")
-    st.sidebar.caption("데모 영상: 앱 조작 시 이 서버 터미널 로그를 함께 녹화하세요.")
+    st.sidebar.caption("영상용 로그: SSH에서 `tail -f ~/ec2_lab/demo_events.log`")
 
     if not st.session_state.logged_in:
         with st.container():
@@ -95,10 +109,10 @@ def main():
                 if user_id in VALID_USERS and VALID_USERS[user_id] == user_pw:
                     st.session_state.logged_in = True
                     reset_quiz_state()
-                    print(f"[ec2-lab] 로그인 성공: user_id={user_id!r}", flush=True)
+                    demo_log(f"로그인 성공: user_id={user_id!r}")
                     st.rerun()
                 else:
-                    print(f"[ec2-lab] 로그인 실패: user_id={user_id!r}", flush=True)
+                    demo_log(f"로그인 실패: user_id={user_id!r}")
                     st.error("로그인 정보가 올바르지 않습니다.")
 
             st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
@@ -139,12 +153,12 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             if st.button("다시 도전하기", key="retry_btn"):
-                print("[ec2-lab] 퀴즈 다시 도전", flush=True)
+                demo_log("퀴즈 다시 도전")
                 reset_quiz_state()
                 st.rerun()
         with col2:
             if st.button("로그아웃", key="logout_btn_end"):
-                print("[ec2-lab] 로그아웃 (미션 완료 화면)", flush=True)
+                demo_log("로그아웃 (미션 완료 화면)")
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.rerun()
@@ -188,21 +202,19 @@ def main():
                 ok = ans == q["answer"]
                 if ok:
                     st.session_state.score += 1
-                print(
-                    f"[ec2-lab] Q{st.session_state.current_idx + 1} 채점: 선택={ans!r} 정답={ok} 누적점수={st.session_state.score}",
-                    flush=True,
+                demo_log(
+                    f"Q{st.session_state.current_idx + 1} 채점: 선택={ans!r} 정답={ok} 누적점수={st.session_state.score}"
                 )
                 st.rerun()
             else:
-                print(f"[ec2-lab] Q{st.session_state.current_idx + 1} 채점 시도: 선택 없음", flush=True)
+                demo_log(f"Q{st.session_state.current_idx + 1} 채점 시도: 선택 없음")
                 st.warning("먼저 정답을 선택해 주세요!")
     else:
         is_last = st.session_state.current_idx == total - 1
         btn_txt = "결과 보기 🏆" if is_last else "다음 문제로 👉"
         if st.button(btn_txt, key=f"next_{st.session_state.current_idx}"):
-            print(
-                f"[ec2-lab] 다음 문제: idx {st.session_state.current_idx} -> {st.session_state.current_idx + 1}",
-                flush=True,
+            demo_log(
+                f"다음 문제: idx {st.session_state.current_idx} -> {st.session_state.current_idx + 1}"
             )
             st.session_state.current_idx += 1
             st.session_state.submitted = False
