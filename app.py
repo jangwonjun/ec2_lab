@@ -95,10 +95,10 @@ def main():
                 if user_id in VALID_USERS and VALID_USERS[user_id] == user_pw:
                     st.session_state.logged_in = True
                     reset_quiz_state()
-                    print(f"[ec2-lab] 로그인 성공: user_id={user_id!r}")
+                    print(f"[ec2-lab] 로그인 성공: user_id={user_id!r}", flush=True)
                     st.rerun()
                 else:
-                    print(f"[ec2-lab] 로그인 실패: user_id={user_id!r}")
+                    print(f"[ec2-lab] 로그인 실패: user_id={user_id!r}", flush=True)
                     st.error("로그인 정보가 올바르지 않습니다.")
 
             st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
@@ -139,12 +139,12 @@ def main():
         col1, col2 = st.columns(2)
         with col1:
             if st.button("다시 도전하기", key="retry_btn"):
-                print("[ec2-lab] 퀴즈 다시 도전")
+                print("[ec2-lab] 퀴즈 다시 도전", flush=True)
                 reset_quiz_state()
                 st.rerun()
         with col2:
             if st.button("로그아웃", key="logout_btn_end"):
-                print("[ec2-lab] 로그아웃 (미션 완료 화면)")
+                print("[ec2-lab] 로그아웃 (미션 완료 화면)", flush=True)
                 for key in list(st.session_state.keys()):
                     del st.session_state[key]
                 st.rerun()
@@ -189,17 +189,21 @@ def main():
                 if ok:
                     st.session_state.score += 1
                 print(
-                    f"[ec2-lab] Q{st.session_state.current_idx + 1} 채점: 선택={ans!r} 정답={ok} 누적점수={st.session_state.score}"
+                    f"[ec2-lab] Q{st.session_state.current_idx + 1} 채점: 선택={ans!r} 정답={ok} 누적점수={st.session_state.score}",
+                    flush=True,
                 )
                 st.rerun()
             else:
-                print(f"[ec2-lab] Q{st.session_state.current_idx + 1} 채점 시도: 선택 없음")
+                print(f"[ec2-lab] Q{st.session_state.current_idx + 1} 채점 시도: 선택 없음", flush=True)
                 st.warning("먼저 정답을 선택해 주세요!")
     else:
         is_last = st.session_state.current_idx == total - 1
         btn_txt = "결과 보기 🏆" if is_last else "다음 문제로 👉"
         if st.button(btn_txt, key=f"next_{st.session_state.current_idx}"):
-            print(f"[ec2-lab] 다음 문제: idx {st.session_state.current_idx} -> {st.session_state.current_idx + 1}")
+            print(
+                f"[ec2-lab] 다음 문제: idx {st.session_state.current_idx} -> {st.session_state.current_idx + 1}",
+                flush=True,
+            )
             st.session_state.current_idx += 1
             st.session_state.submitted = False
             st.session_state.user_answer = None
