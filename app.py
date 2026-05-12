@@ -1,33 +1,210 @@
-"""
-실습 3용 Streamlit 프론트엔드 (EC2 배포 대상).
-터미널에서 `streamlit run app.py` 실행 시 요청 로그가 콘솔에 출력됩니다.
-"""
+import json
+from pathlib import Path
 
 import streamlit as st
 
-st.set_page_config(page_title="OSS 실습 3", page_icon="🖥️")
+# 실행 위치와 무관하게 data/ 를 찾기 (EC2 등 배포 환경)
+BASE_DIR = Path(__file__).resolve().parent
+QUESTION_FILE = BASE_DIR / "data" / "questions.json"
 
-st.title("오픈소스소프트웨어실습 · EC2 배포 데모")
-st.markdown(
-    "간단한 입력과 버튼으로 동작을 확인합니다. "
-    "**브라우저에서 조작할 때** EC2 터미널에 Streamlit 로그가 함께 찍히는지 데모 영상에 담아 주세요."
-)
+st.set_page_config(page_title="공구 마스터 퀴즈", page_icon="🛠️", layout="centered")
 
-name = st.text_input("이름을 입력하세요", placeholder="예: 홍길동")
-message = st.text_area("메시지 (선택)", placeholder="짧은 문장을 적어도 됩니다.")
+STUDENT_ID = "2024404085"
+STUDENT_NAME = "장원준"
 
-if st.button("실행"):
-    if not name.strip():
-        st.warning("이름을 한 글자 이상 입력해 주세요.")
-        print("[demo] 실행 버튼: 이름 미입력")
+VALID_USERS = {
+    "toolmaster": "1234",
+    "wonjun": "hammer",
+}
+
+
+def reset_quiz_state():
+    st.session_state.current_idx = 0
+    st.session_state.score = 0
+    st.session_state.submitted = False
+    st.session_state.user_answer = None
+
+
+def init_state():
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+    if "current_idx" not in st.session_state:
+        st.session_state.current_idx = 0
+    if "score" not in st.session_state:
+        st.session_state.score = 0
+    if "submitted" not in st.session_state:
+        st.session_state.submitted = False
+    if "user_answer" not in st.session_state:
+        st.session_state.user_answer = None
+
+
+def apply_custom_style():
+    st.markdown(
+        """
+    <style>
+    .stApp { background-color: #ffffff; }
+    h1, h2, h3, h4, h5, h6, p, label, span { color: #2f3542 !important; font-family: 'Pretendard', sans-serif; }
+    .main .block-container { max-width: 500px; padding-top: 2rem; }
+    div[data-testid="stProgress"] > div > div > div > div { background-color: #ff4757; }
+    div[data-testid="stTextInput"] input { background-color: #f1f2f6 !important; color: #2f3542 !important; border: 1px solid #dfe4ea !important; border-radius: 10px !important; }
+    .quiz-container { background-color: #f7f9fb; border-radius: 20px; padding: 25px; margin-top: 10px; border: 1px solid #edf2f7; }
+    .feedback-box { padding: 15px; border-radius: 15px; margin-bottom: 20px; font-weight: 700; text-align: center; border: 2px solid transparent; }
+    .correct-box { background-color: #e3f9e5; color: #2ed573 !important; border-color: #2ed573; }
+    .wrong-box { background-color: #fff4f4; color: #ff4757 !important; border-color: #ff4757; }
+    .stButton>button { width: 100%; border-radius: 12px; height: 3.5em; font-weight: 800; background-color: #747d8c; color: white; border: none; transition: 0.3s; }
+    .stButton>button:hover { background-color: #ff4757; color: white; }
+    .header-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+    .header-title { font-weight: 800; color: #2f3542 !important; font-size: 1.1rem; }
+    .header-percent { font-weight: 700; color: #ff4757 !important; font-size: 1rem; }
+    </style>
+    """,
+        unsafe_allow_html=True,
+    )
+
+
+@st.cache_data
+def load_questions(file_path: Path):
+    with open(file_path, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def main():
+    apply_custom_style()
+    init_state()
+
+    st.sidebar.caption("오픈소스소프트웨어실습 · 실습3 EC2 배포")
+    st.sidebar.caption("데모 영상: 앱 조작 시 이 서버 터미널 로그를 함께 녹화하세요.")
+
+    if not st.session_state.logged_in:
+        with st.container():
+            st.markdown(
+                """
+            <div style='text-align: center; margin-top: 30px; margin-bottom: 10px;'>
+                <h1 style='font-size: 2.5rem;'>🛠️ 공구 마스터</h1>
+                <p style='font-size: 1.1rem; color: #747d8c; font-weight: 600;'>당신도 공구 마스터에 도전해보세요!</p>
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
+
+            st.write("")
+            user_id = st.text_input("아이디", placeholder="wonjun", key="login_id")
+            user_pw = st.text_input("비밀번호", type="password", placeholder="hammer", key="login_pw")
+
+            if st.button("게임 시작하기", key="login_btn"):
+                if user_id in VALID_USERS and VALID_USERS[user_id] == user_pw:
+                    st.session_state.logged_in = True
+                    reset_quiz_state()
+                    print(f"[ec2-lab] 로그인 성공: user_id={user_id!r}")
+                    st.rerun()
+                else:
+                    print(f"[ec2-lab] 로그인 실패: user_id={user_id!r}")
+                    st.error("로그인 정보가 올바르지 않습니다.")
+
+            st.markdown("<div style='height: 40px;'></div>", unsafe_allow_html=True)
+            st.caption(f"제출자: {STUDENT_NAME} ({STUDENT_ID})")
+        return
+
+    questions = load_questions(QUESTION_FILE)
+    total = len(questions)
+
+    if st.session_state.current_idx >= total:
+        st.balloons()
+        st.markdown("<div style='text-align: center; margin-top: 40px;'>", unsafe_allow_html=True)
+        st.title("🏆 미션 클리어!")
+        st.markdown(
+            f"<h2 style='color: #ff4757; margin-bottom: 10px;'>최종 점수: {st.session_state.score} / {total}</h2>",
+            unsafe_allow_html=True,
+        )
+
+        if st.session_state.score == total:
+            st.markdown(
+                "<p style='font-size: 1.2rem; font-weight: 700; color: #2ed573;'>등급: 공구 마스터 🏆</p><p style='color: #747d8c;'>모든 공구를 완벽하게 마스터하셨습니다!</p>",
+                unsafe_allow_html=True,
+            )
+        elif st.session_state.score >= total // 2:
+            st.markdown(
+                "<p style='font-size: 1.2rem; font-weight: 700; color: #1e90ff;'>등급: 준 전문가 👍</p><p style='color: #747d8c;'>훌륭합니다! 조금만 더 하면 마스터가 될 수 있어요.</p>",
+                unsafe_allow_html=True,
+            )
+        else:
+            st.markdown(
+                "<p style='font-size: 1.2rem; font-weight: 700; color: #ffa502;'>등급: 입문자 💪</p><p style='color: #747d8c;'>아직 공구가 낯선가요? 다시 한 번 도전해 보세요!</p>",
+                unsafe_allow_html=True,
+            )
+
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.write("")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("다시 도전하기", key="retry_btn"):
+                print("[ec2-lab] 퀴즈 다시 도전")
+                reset_quiz_state()
+                st.rerun()
+        with col2:
+            if st.button("로그아웃", key="logout_btn_end"):
+                print("[ec2-lab] 로그아웃 (미션 완료 화면)")
+                for key in list(st.session_state.keys()):
+                    del st.session_state[key]
+                st.rerun()
+        return
+
+    percent = int((st.session_state.current_idx / total) * 100)
+    st.markdown(
+        f"<div class='header-container'><div class='header-title'>🛠️ 공구 마스터</div><div class='header-percent'>{percent}%</div></div>",
+        unsafe_allow_html=True,
+    )
+    st.progress(st.session_state.current_idx / total)
+
+    q = questions[st.session_state.current_idx]
+
+    if st.session_state.submitted:
+        if st.session_state.user_answer == q["answer"]:
+            st.markdown("<div class='feedback-box correct-box'>✅ 정답입니다!</div>", unsafe_allow_html=True)
+        else:
+            st.markdown(
+                f"<div class='feedback-box wrong-box'>❌ 아쉽습니다! 정답은 [{q['answer']}]</div>",
+                unsafe_allow_html=True,
+            )
     else:
-        print(f"[demo] 실행 버튼: name={name.strip()!r}, message_len={len(message.strip())}")
-        st.success(f"안녕하세요, **{name.strip()}** 님!")
-        if message.strip():
-            st.info(f"메시지: {message.strip()}")
-        st.caption("버튼 클릭 시 서버에서 세션이 갱신되며, 터미널에 HTTP 요청 로그가 이어집니다.")
+        st.markdown("<div style='height: 74px;'></div>", unsafe_allow_html=True)
 
-st.divider()
-st.markdown(
-    "이후 실습 4에서는 **FastAPI** 백엔드와 연동할 수 있도록 이 화면을 확장하면 됩니다."
-)
+    st.markdown("<div class='quiz-container'>", unsafe_allow_html=True)
+    st.markdown(
+        f"<h3 style='margin-top: 0; line-height: 1.5;'>Q{st.session_state.current_idx + 1:02d}. {q['description']}</h3>",
+        unsafe_allow_html=True,
+    )
+    ans = st.radio("정답 선택", q["options"], index=None, key=f"q_{st.session_state.current_idx}", label_visibility="collapsed")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    st.write("")
+
+    if not st.session_state.submitted:
+        if st.button("정답 확인하기", key=f"check_{st.session_state.current_idx}"):
+            if ans:
+                st.session_state.user_answer = ans
+                st.session_state.submitted = True
+                ok = ans == q["answer"]
+                if ok:
+                    st.session_state.score += 1
+                print(
+                    f"[ec2-lab] Q{st.session_state.current_idx + 1} 채점: 선택={ans!r} 정답={ok} 누적점수={st.session_state.score}"
+                )
+                st.rerun()
+            else:
+                print(f"[ec2-lab] Q{st.session_state.current_idx + 1} 채점 시도: 선택 없음")
+                st.warning("먼저 정답을 선택해 주세요!")
+    else:
+        is_last = st.session_state.current_idx == total - 1
+        btn_txt = "결과 보기 🏆" if is_last else "다음 문제로 👉"
+        if st.button(btn_txt, key=f"next_{st.session_state.current_idx}"):
+            print(f"[ec2-lab] 다음 문제: idx {st.session_state.current_idx} -> {st.session_state.current_idx + 1}")
+            st.session_state.current_idx += 1
+            st.session_state.submitted = False
+            st.session_state.user_answer = None
+            st.rerun()
+
+
+if __name__ == "__main__":
+    main()
